@@ -8,6 +8,7 @@ import org.bson.types.ObjectId;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cglib.core.Local;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -21,18 +22,23 @@ public class JournalEntryService {
     @Autowired
     private UserService userService;
 
+    @Transactional
     public void save(JournalEntry journalEntry, String username){
-        User user = userService.findByUsername(username)
-                .orElseThrow(() -> new RuntimeException("User not found with username: " + username));
-        journalEntry.setDate(LocalDateTime.now());
-        JournalEntry saved = journalEntryRepository.save(journalEntry);
-        List<JournalEntry> existingEntries = user.getJournalEntries();
-        if (existingEntries == null) {
-            existingEntries = new ArrayList<>();
+        try{
+            User user = userService.findByUsername(username)
+                    .orElseThrow(() -> new RuntimeException("User not found with username: " + username));
+            journalEntry.setDate(LocalDateTime.now());
+            JournalEntry saved = journalEntryRepository.save(journalEntry);
+            List<JournalEntry> existingEntries = user.getJournalEntries();
+            if (existingEntries == null) {
+                existingEntries = new ArrayList<>();
+            }
+            existingEntries.add(saved);
+            user.setJournalEntries(existingEntries);
+            userService.save(user);
+        } catch (RuntimeException e) {
+            throw new RuntimeException(e);
         }
-        existingEntries.add(saved);
-        user.setJournalEntries(existingEntries);
-        userService.save(user);
     }
 
     public void save(JournalEntry journalEntry){
